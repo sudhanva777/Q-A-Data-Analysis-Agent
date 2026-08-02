@@ -1,0 +1,27 @@
+# Environment variables
+.env
+.env.local
+
+# Virtual environment
+venv/
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Frontend build artifacts
+frontend/node_modules/
+frontend/dist/
+
+# Runtime outputs
+outputs/*.png
+!outputs/.gitkeep
+
+# Logs database
+logs/*.db
+logs/
+!logs/.gitkeep
+
+# OS and editor files
+.DS_Store
+Thumbs.db
