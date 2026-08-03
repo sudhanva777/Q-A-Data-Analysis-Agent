@@ -24,9 +24,9 @@ export default function SequentialLoader() {
   }, []);
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-xs my-4 max-w-xl">
-      <div className="flex items-center space-x-2 text-[14px] font-semibold text-gray-900 mb-3.5">
-        <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+    <div className="bg-white border border-gray-200 rounded-lg p-5 shadow-sm my-4 max-w-xl w-full">
+      <div className="flex items-center space-x-2 text-sm font-semibold text-gray-900 mb-3.5">
+        <Loader2 className="w-4 h-4 text-blue-500 animate-spin" aria-hidden="true" />
         <span>Analyzing dataset with pandas engine...</span>
       </div>
 
@@ -38,20 +38,20 @@ export default function SequentialLoader() {
           return (
             <div
               key={step.id}
-              className={`flex items-center space-x-2.5 text-[13px] transition-all duration-200 ${
+              className={`flex items-center space-x-2.5 text-xs md:text-sm transition-all duration-200 ${
                 isDone
                   ? 'text-emerald-700 font-medium'
                   : isCurrent
-                  ? 'text-blue-700 font-semibold'
+                  ? 'text-blue-600 font-semibold'
                   : 'text-gray-400 font-normal'
               }`}
             >
               {isDone ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" aria-hidden="true" />
               ) : isCurrent ? (
-                <Loader2 className="w-4 h-4 text-blue-600 animate-spin shrink-0" />
+                <Loader2 className="w-4 h-4 text-blue-500 animate-spin shrink-0" aria-hidden="true" />
               ) : (
-                <Circle className="w-4 h-4 text-gray-300 shrink-0" />
+                <Circle className="w-4 h-4 text-gray-300 shrink-0" aria-hidden="true" />
               )}
               <span>{step.text}</span>
             </div>
@@ -61,3 +61,4 @@ export default function SequentialLoader() {
     </div>
   );
 }
+

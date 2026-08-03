@@ -25,7 +25,3 @@ logs/
 # OS and editor files
 .DS_Store
 Thumbs.db
-
-
-data/card_transactions.csv
-data/transactions.csv

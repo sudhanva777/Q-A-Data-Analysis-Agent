@@ -63,39 +63,41 @@ export default function ChartViewer({ chartUrl, tableData, chartData, title = 'G
 
   if (!fullChartUrl && !rechartsData) {
     return (
-      <div className="p-8 text-center bg-gray-50 border border-gray-200 rounded-xl text-gray-500 text-[13.5px]">
-        <BarChart3 className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+      <div className="p-8 text-center bg-gray-50 border border-gray-200 rounded-lg text-gray-500 text-xs md:text-sm">
+        <BarChart3 className="w-8 h-8 text-gray-400 mx-auto mb-2" aria-hidden="true" />
         <span>No visualization chart required or generated for this query.</span>
       </div>
     );
   }
 
   return (
-    <div className={`bg-white border border-gray-200 rounded-xl overflow-hidden shadow-xs ${isFullscreen ? 'fixed inset-4 z-50 shadow-2xl flex flex-col' : ''}`}>
+    <div className={`bg-white border border-gray-200 rounded-lg overflow-hidden shadow-xs ${isFullscreen ? 'fixed inset-4 z-50 shadow-2xl flex flex-col' : ''}`}>
       {/* Chart Header Toolbar */}
       <div className="p-3.5 border-b border-gray-200 bg-gray-50 flex items-center justify-between">
         <div className="flex items-center space-x-2">
-          <ImageIcon className="w-4 h-4 text-blue-600" />
-          <span className="text-[13.5px] font-semibold text-gray-800">{title}</span>
+          <ImageIcon className="w-4 h-4 text-blue-500" aria-hidden="true" />
+          <span className="text-xs md:text-sm font-semibold text-gray-800">{title}</span>
         </div>
 
         <div className="flex items-center space-x-1.5">
           {fullChartUrl && (
             <button
               onClick={handleDownload}
-              className="inline-flex items-center px-2.5 py-1 text-[12.5px] font-medium bg-white hover:bg-gray-100 text-gray-700 border border-gray-300 rounded-md shadow-2xs transition-colors"
+              aria-label="Download chart image as PNG"
+              className="inline-flex items-center px-3 py-1.5 text-xs md:text-sm font-medium bg-white hover:bg-gray-100 text-gray-700 border border-gray-300 rounded-md shadow-2xs transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <Download className="w-3.5 h-3.5 mr-1" />
+              <Download className="w-3.5 h-3.5 mr-1.5" aria-hidden="true" />
               Download PNG
             </button>
           )}
 
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-1.5 text-gray-500 hover:text-gray-900 bg-white hover:bg-gray-100 border border-gray-300 rounded-md transition-colors"
+            aria-label={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+            className="p-1.5 text-gray-500 hover:text-gray-900 bg-white hover:bg-gray-100 border border-gray-300 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
             title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
           >
-            <Maximize2 className="w-3.5 h-3.5" />
+            <Maximize2 className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -105,8 +107,8 @@ export default function ChartViewer({ chartUrl, tableData, chartData, title = 'G
         {fullChartUrl ? (
           <img
             src={fullChartUrl}
-            alt="Data Analysis Chart"
-            className="max-h-[420px] w-auto object-contain rounded-lg border border-gray-100 shadow-2xs"
+            alt="Data Analysis Chart Visualization"
+            className="max-h-[420px] w-auto object-contain rounded-md border border-gray-200 shadow-2xs"
           />
         ) : rechartsData ? (
           <div className="w-full h-[320px]">
@@ -116,15 +118,15 @@ export default function ChartViewer({ chartUrl, tableData, chartData, title = 'G
                   <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
                   <XAxis dataKey="name" stroke="#64748B" fontSize={12} angle={-20} textAnchor="end" />
                   <YAxis stroke="#64748B" fontSize={12} />
-                  <Tooltip contentStyle={{ backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', borderRadius: '8px' }} />
-                  <Line type="monotone" dataKey="value" stroke="#2563EB" strokeWidth={2} />
+                  <Tooltip contentStyle={{ backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', borderRadius: '6px' }} />
+                  <Line type="monotone" dataKey="value" stroke="#3B82F6" strokeWidth={2} />
                 </LineChart>
               ) : rechartsData.type === 'pie' ? (
                 <PieChart>
-                  <Tooltip contentStyle={{ backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', borderRadius: '8px' }} />
-                  <Pie data={rechartsData.data} dataKey="value" nameKey="name" innerRadius={40} outerRadius={120} fill="#2563EB">
+                  <Tooltip contentStyle={{ backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', borderRadius: '6px' }} />
+                  <Pie data={rechartsData.data} dataKey="value" nameKey="name" innerRadius={40} outerRadius={120} fill="#3B82F6">
                     {rechartsData.data.map((entry, index) => (
-                      <Cell key={`${entry.name}-${index}`} fill={index % 2 === 0 ? '#2563EB' : '#93C5FD'} />
+                      <Cell key={`${entry.name}-${index}`} fill={index % 2 === 0 ? '#3B82F6' : '#93C5FD'} />
                     ))}
                   </Pie>
                 </PieChart>
@@ -133,16 +135,16 @@ export default function ChartViewer({ chartUrl, tableData, chartData, title = 'G
                   <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
                   <XAxis dataKey="x" stroke="#64748B" fontSize={12} />
                   <YAxis dataKey="y" stroke="#64748B" fontSize={12} />
-                  <Tooltip contentStyle={{ backgroundColor: '#FFFFFF', borderColor: '#E2E7EB', borderRadius: '8px' }} />
-                  <Scatter data={rechartsData.data} fill="#2563EB" />
+                  <Tooltip contentStyle={{ backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', borderRadius: '6px' }} />
+                  <Scatter data={rechartsData.data} fill="#3B82F6" />
                 </ScatterChart>
               ) : (
                 <BarChart data={rechartsData.data} margin={{ top: 20, right: 30, left: 20, bottom: 40 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#E2E8F0" />
                   <XAxis dataKey="name" stroke="#64748B" fontSize={12} angle={-20} textAnchor="end" />
                   <YAxis stroke="#64748B" fontSize={12} />
-                  <Tooltip contentStyle={{ backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', borderRadius: '8px' }} />
-                  <Bar dataKey="value" fill="#2563EB" radius={[4, 4, 0, 0]} />
+                  <Tooltip contentStyle={{ backgroundColor: '#FFFFFF', borderColor: '#E2E8F0', borderRadius: '6px' }} />
+                  <Bar dataKey="value" fill="#3B82F6" radius={[4, 4, 0, 0]} />
                 </BarChart>
               )}
             </ResponsiveContainer>
@@ -152,3 +154,4 @@ export default function ChartViewer({ chartUrl, tableData, chartData, title = 'G
     </div>
   );
 }
+
