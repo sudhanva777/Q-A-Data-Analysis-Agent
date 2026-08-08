@@ -5,6 +5,7 @@ import pandas as pd
 from src.code_generator import generate_code
 from src.sandbox import validate_code, run_code
 from src.answer_composer import compose_answer
+from src.analysis_planner import create_analysis_plan
 
 MAX_QUESTION_LENGTH = 2000
 
@@ -19,11 +20,14 @@ def wrap_scalar_as_table(result):
 
 
 def answer_question(question: str, df: pd.DataFrame, schema_summary: str) -> dict:
-    """Orchestrate the full pipeline with input validation, code generation, execution, and composition."""
+    """Orchestrate the full pipeline with input validation, planning, code generation, execution, and composition."""
     if len(question) > MAX_QUESTION_LENGTH:
         raise ValueError(
             f"Question length ({len(question)} chars) exceeds maximum limit of {MAX_QUESTION_LENGTH} characters."
         )
+
+    # Additive optional analysis plan (feature-flagged)
+    analysis_plan = create_analysis_plan(question, schema_summary, df)
 
     plan = generate_code(question, schema_summary)
     validate_code(plan["code"])
@@ -59,4 +63,5 @@ def answer_question(question: str, df: pd.DataFrame, schema_summary: str) -> dic
         "result": tabular_result,
         "raw_result": exec_result["result"],
         "chart_path": chart_path,
+        "analysis_plan": analysis_plan,
     }

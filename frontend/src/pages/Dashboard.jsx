@@ -3,6 +3,7 @@ import Navbar from '../components/Navbar/Navbar';
 import Sidebar from '../components/Sidebar/Sidebar';
 import ChatWorkspace from '../components/Chat/ChatWorkspace';
 import UploadCard from '../components/Upload/UploadCard';
+import CleaningModal from '../components/Cleaning/CleaningModal';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { X, Upload } from 'lucide-react';
@@ -19,6 +20,8 @@ export default function Dashboard() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [showCleaningModal, setShowCleaningModal] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   // Load initial datasets & history
   useEffect(() => {
@@ -33,6 +36,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (activeDataset) {
       fetchDatasetDetails(activeDataset);
+      setBannerDismissed(false);
     }
   }, [activeDataset]);
 
@@ -140,6 +144,14 @@ export default function Dashboard() {
     }
   };
 
+  const handleCleaningComplete = async (result) => {
+    await fetchDatasets();
+    if (result?.cleaned_dataset_id) {
+      setActiveDataset(result.cleaned_dataset_id);
+    }
+    setShowCleaningModal(false);
+  };
+
   const handleSendMessage = async (questionText) => {
     if (!activeDataset) {
       toast.error('Please select or upload a dataset first!');
@@ -170,6 +182,7 @@ export default function Dashboard() {
         chart_url: response.chart_url,
         chart_data: response.chart_data,
         generated_code: response.generated_code,
+        analysis_plan: response.analysis_plan,
         latency_ms: response.latency_ms,
         datasetId: activeDataset,
         status: 'SUCCESS',
@@ -265,8 +278,12 @@ export default function Dashboard() {
           messages={messages}
           onSendMessage={handleSendMessage}
           activeDataset={activeDataset}
+          datasetDetails={datasetDetails}
           isLoading={isLoading}
           onOpenUploadModal={() => setShowUploadModal(true)}
+          onOpenCleaning={() => setShowCleaningModal(true)}
+          onDismissBanner={() => setBannerDismissed(true)}
+          bannerDismissed={bannerDismissed}
         />
       </div>
 
@@ -301,6 +318,14 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      <CleaningModal
+        isOpen={showCleaningModal}
+        onClose={() => setShowCleaningModal(false)}
+        datasetId={activeDataset}
+        validationIssues={datasetDetails?.validation?.issues}
+        onCleaningComplete={handleCleaningComplete}
+      />
     </div>
   );
 }

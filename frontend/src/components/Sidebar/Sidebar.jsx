@@ -168,6 +168,15 @@ export default function Sidebar({
                 {datasetDetails.completeness}%
               </span>
             </div>
+
+            {datasetDetails.quality_score && (
+              <div className="bg-slate-50 border border-slate-200 rounded-md p-2 flex items-center justify-between">
+                <span className="text-xs text-slate-500 font-medium">Quality Score</span>
+                <span className="text-xs font-bold text-blue-600">
+                  {datasetDetails.quality_score.score}/100
+                </span>
+              </div>
+            )}
           </section>
         )}
 
@@ -221,7 +230,7 @@ export default function Sidebar({
           Pandas Engine
         </span>
         <span className="font-mono text-[11px] bg-gray-200 text-gray-700 px-1.5 py-0.5 rounded">
-          v1.0
+          v2.0
         </span>
       </div>
     </aside>

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, FileSpreadsheet, Database, ArrowRight, Upload } from 'lucide-react';
 import MessageCard from '../Message/MessageCard';
 import SequentialLoader from '../Loading/SequentialLoader';
+import DatasetHealthPanel from '../Dataset/DatasetHealthPanel';
 
 const SAMPLE_SUGGESTIONS = [
   'What are the total sales by region?',
@@ -14,8 +15,12 @@ export default function ChatWorkspace({
   messages,
   onSendMessage,
   activeDataset,
+  datasetDetails,
   isLoading,
   onOpenUploadModal,
+  onOpenCleaning,
+  onDismissBanner,
+  bannerDismissed,
 }) {
   const [question, setQuestion] = useState('');
   const messagesEndRef = useRef(null);
@@ -39,6 +44,16 @@ export default function ChatWorkspace({
     <main role="main" className="flex-1 flex flex-col h-[calc(100vh-64px)] bg-[#F8FAFC] overflow-hidden relative">
       {/* Messages / Hero Scroll Area */}
       <div className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-6 max-w-5xl mx-auto w-full">
+        {activeDataset && datasetDetails && (
+          <DatasetHealthPanel
+            datasetId={activeDataset}
+            datasetDetails={datasetDetails}
+            onOpenCleaning={onOpenCleaning}
+            onDismissBanner={onDismissBanner}
+            bannerDismissed={bannerDismissed}
+          />
+        )}
+
         {messages.length === 0 ? (
           /* Central Hero Panel Card */
           <div className="h-full flex flex-col items-center justify-center my-auto py-8">

@@ -61,6 +61,41 @@ export const api = {
     const response = await apiClient.get(`/api/history?limit=${limit}`);
     return response.data;
   },
+
+  // ─── V2 Endpoints ────────────────────────────────────────
+
+  // Get comprehensive profiling report
+  getProfile: async (datasetId) => {
+    const response = await apiClient.get(`/api/profile/${encodeURIComponent(datasetId)}`);
+    return response.data;
+  },
+
+  // Get quality score + validation issues
+  getQualityScore: async (datasetId) => {
+    const response = await apiClient.get(`/api/quality/${encodeURIComponent(datasetId)}`);
+    return response.data;
+  },
+
+  // Get auto-generated insights
+  getInsights: async (datasetId) => {
+    const response = await apiClient.get(`/api/insights/${encodeURIComponent(datasetId)}`);
+    return response.data;
+  },
+
+  // Clean dataset with specified operations
+  cleanDataset: async (datasetId, operations = []) => {
+    const response = await apiClient.post('/api/clean', {
+      dataset_id: datasetId,
+      operations: operations,
+    });
+    return response.data;
+  },
+
+  // Get rich dataset summary (LLM context)
+  getDatasetSummary: async (datasetId) => {
+    const response = await apiClient.get(`/api/summary/${encodeURIComponent(datasetId)}`);
+    return response.data;
+  },
 };
 
 export default api;

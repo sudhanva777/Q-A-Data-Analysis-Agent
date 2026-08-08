@@ -2,7 +2,7 @@ import logging
 import os
 import time
 import traceback
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Query, Request
 from fastapi.exceptions import RequestValidationError
@@ -14,13 +14,20 @@ from pydantic import BaseModel
 from src import db
 from src.analysis_service import (
     answer_question,
+    clean_dataset_file,
     delete_dataset_file,
     fetch_history,
     get_dataset_details,
+    get_dataset_insights,
     get_dataset_path,
+    get_dataset_profile,
+    get_dataset_quality,
+    get_or_load_dataset_intelligence,
     list_datasets,
     upload_dataset_file,
 )
+from src.dataset_summary import build_rich_dataset_summary
+from src.data_loader import load_dataset
 
 # Create required directories
 os.makedirs("data", exist_ok=True)
@@ -82,6 +89,11 @@ app.mount("/outputs", StaticFiles(directory="outputs"), name="outputs")
 class QueryRequest(BaseModel):
     dataset_id: str
     question: str
+
+
+class CleanRequest(BaseModel):
+    dataset_id: str
+    operations: List[str] = []
 
 
 @app.get("/health")
@@ -180,6 +192,89 @@ def get_history(limit: int = Query(default=50, ge=1, le=200)):
     return fetch_history(limit=limit)
 
 
+# ─── New V2 Endpoints (additive — Phase 1–9) ────────────────────────────────
+
+@app.get("/profile/{dataset_id}")
+def get_profile(dataset_id: str):
+    """Return comprehensive data profiling report for a dataset."""
+    try:
+        return {"status": "success", "profile": get_dataset_profile(dataset_id)}
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover
+        logger.exception("Profiling failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Profiling failed.") from exc
+
+
+@app.get("/quality/{dataset_id}")
+def get_quality(dataset_id: str):
+    """Return data quality score and validation issues for a dataset."""
+    try:
+        return get_dataset_quality(dataset_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover
+        logger.exception("Quality scoring failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Quality scoring failed.") from exc
+
+
+@app.get("/insights/{dataset_id}")
+def get_insights(dataset_id: str):
+    """Return automatically generated insights for a dataset."""
+    try:
+        return get_dataset_insights(dataset_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover
+        logger.exception("Insight generation failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Insight generation failed.") from exc
+
+
+@app.post("/clean")
+def clean_dataset_endpoint(body: CleanRequest):
+    """Clean a dataset using specified operations (executed via hardened sandbox)."""
+    try:
+        return clean_dataset_file(body.dataset_id, body.operations)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=f"Cleaning failed: {str(exc)}") from exc
+    except Exception as exc:  # pragma: no cover
+        logger.exception("Cleaning failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Cleaning failed.") from exc
+
+
+@app.get("/summary/{dataset_id}")
+def get_summary(dataset_id: str):
+    """Return rich dataset summary used for LLM context."""
+    try:
+        path = get_dataset_path(dataset_id)
+        df = load_dataset(path)
+        intelligence = get_or_load_dataset_intelligence(dataset_id, df=df)
+        summary_text = build_rich_dataset_summary(
+            df,
+            dataset_name=os.path.basename(path),
+            profile=intelligence["profile"],
+            quality=intelligence["quality_score"],
+        )
+        return {"status": "success", "dataset_id": dataset_id, "summary": summary_text}
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:  # pragma: no cover
+        logger.exception("Summary generation failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Summary generation failed.") from exc
+
+
 # Compatibility aliases for the older /api/* route names used by earlier frontend builds.
 @app.get("/api/health")
 def health_check_api():
@@ -214,3 +309,29 @@ def process_query_api(body: QueryRequest):
 @app.get("/api/history")
 def get_history_api(limit: int = Query(default=50, ge=1, le=200)):
     return get_history(limit=limit)
+
+
+# V2 /api/* compatibility aliases
+@app.get("/api/profile/{dataset_id}")
+def get_profile_api(dataset_id: str):
+    return get_profile(dataset_id)
+
+
+@app.get("/api/quality/{dataset_id}")
+def get_quality_api(dataset_id: str):
+    return get_quality(dataset_id)
+
+
+@app.get("/api/insights/{dataset_id}")
+def get_insights_api(dataset_id: str):
+    return get_insights(dataset_id)
+
+
+@app.post("/api/clean")
+def clean_dataset_api(body: CleanRequest):
+    return clean_dataset_endpoint(body)
+
+
+@app.get("/api/summary/{dataset_id}")
+def get_summary_api(dataset_id: str):
+    return get_summary(dataset_id)

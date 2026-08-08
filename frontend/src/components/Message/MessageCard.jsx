@@ -119,10 +119,18 @@ export default function MessageCard({ message }) {
                   <span className="text-slate-400">Inference Engine:</span>
                   <span className="text-blue-400">Groq (llama-3.3-70b-versatile)</span>
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                   <span className="text-slate-400">Dataset Context:</span>
                   <span className="text-slate-300">{message.datasetId || 'Default Dataset'}</span>
                 </div>
+                {message.analysis_plan && (
+                  <div className="pt-2 border-t border-slate-800">
+                    <div className="text-slate-400 mb-1">Analysis Plan:</div>
+                    <pre className="text-slate-300 whitespace-pre-wrap text-[11px] leading-relaxed">
+                      {JSON.stringify(message.analysis_plan, null, 2)}
+                    </pre>
+                  </div>
+                )}
               </div>
             )}
           </div>

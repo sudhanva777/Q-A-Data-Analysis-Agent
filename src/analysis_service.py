@@ -5,13 +5,21 @@ import os
 import re
 import time
 from datetime import date, datetime, time as dt_time, timedelta
-from typing import Any
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 import pandas as pd
 
 from src import agent, db
-from src.data_loader import build_schema_summary, load_dataset
+from src.cache_store import get_cached, make_dataset_cache_key, set_cached
+from src.data_loader import load_dataset
+from src.dataset_summary import build_rich_dataset_summary
+from src.data_profiler import profile_dataset
+from src.data_validator import validate_dataset
+from src.quality_score import calculate_quality_score
+from src.data_cleaner import clean_dataset
+from src.insight_generator import generate_auto_insights
+from src.chart_selector import select_and_build_chart
 
 
 DATASET_ID_PATTERN = re.compile(r"^[A-Za-z0-9 _\.\-]+$")
@@ -87,31 +95,9 @@ def wrap_scalar_as_table(result: Any) -> Any:
     return pd.DataFrame({"Computed Value": [result]})
 
 
-def build_chart_payload(table_payload: dict | None) -> dict | None:
-    """Create a simple chart payload that the frontend can render without a PNG."""
-    if not table_payload or not table_payload.get("rows"):
-        return None
-
-    columns = table_payload.get("columns", [])
-    rows = table_payload.get("rows", [])
-    if len(columns) < 2:
-        return None
-
-    x_key = columns[0]
-    y_key = columns[1]
-    data_points = []
-    for row in rows[:15]:
-        try:
-            value = row.get(y_key)
-            numeric_value = float(value) if value is not None else 0.0
-        except (TypeError, ValueError):
-            numeric_value = 0.0
-        data_points.append({"name": str(row.get(x_key, "")), "value": numeric_value})
-
-    if not data_points:
-        return None
-
-    return {"type": "bar", "xKey": x_key, "yKey": y_key, "data": data_points}
+def build_chart_payload(table_payload: dict | None, question: str = "") -> dict | None:
+    """Create a smart Recharts chart payload with full chart_selector support."""
+    return select_and_build_chart(table_payload, question=question)
 
 
 def validate_dataset_id(dataset_id: str) -> str:
@@ -132,6 +118,41 @@ def get_dataset_path(dataset_id: str) -> str:
     if not os.path.exists(path):
         raise FileNotFoundError(f"Dataset '{filename}' not found.")
     return path
+
+
+def compute_dataset_intelligence(df: pd.DataFrame, dataset_name: str) -> dict[str, Any]:
+    """Run profiling, validation, quality scoring, and insight generation once."""
+    profile = profile_dataset(df, dataset_name=dataset_name, log_audit=True)
+    val_report = validate_dataset(df)
+    quality_info = calculate_quality_score(df, validation_report=val_report)
+    insights_info = generate_auto_insights(
+        df,
+        dataset_name=dataset_name,
+        profile=profile,
+        log_audit=True,
+    )
+    return {
+        "profile": profile,
+        "validation": val_report,
+        "quality_score": quality_info,
+        "insights": insights_info.get("insights", []),
+        "insights_meta": insights_info,
+    }
+
+
+def get_or_load_dataset_intelligence(dataset_id: str, df: pd.DataFrame | None = None) -> dict[str, Any]:
+    """Return cached dataset intelligence or compute and cache it."""
+    path = get_dataset_path(dataset_id)
+    cache_key = make_dataset_cache_key(path)
+    cached = get_cached(cache_key)
+    if cached is not None:
+        return cached
+
+    if df is None:
+        df = load_dataset(path)
+    intelligence = compute_dataset_intelligence(df, os.path.basename(path))
+    set_cached(cache_key, intelligence)
+    return intelligence
 
 
 def list_datasets() -> list[dict[str, Any]]:
@@ -157,12 +178,18 @@ def list_datasets() -> list[dict[str, Any]]:
 
 
 def get_dataset_details(dataset_id: str) -> dict[str, Any]:
-    """Inspect a dataset and return metadata plus preview data."""
+    """Inspect a dataset and return metadata, preview data, quality score, and insights."""
     path = get_dataset_path(dataset_id)
     df = load_dataset(path)
+    intelligence = get_or_load_dataset_intelligence(dataset_id, df=df)
+
     null_total = int(df.isnull().sum().sum())
     cell_count = len(df) * len(df.columns)
     completeness = round((1 - null_total / max(cell_count, 1)) * 100, 1)
+
+    quality_info = intelligence["quality_score"]
+    val_report = intelligence["validation"]
+    insights_info = intelligence["insights"]
 
     columns_info = []
     for col in df.columns:
@@ -184,6 +211,9 @@ def get_dataset_details(dataset_id: str) -> dict[str, Any]:
         "column_count": len(df.columns),
         "null_cells": null_total,
         "completeness": completeness,
+        "quality_score": quality_info,
+        "validation": val_report,
+        "insights": insights_info,
         "columns": columns_info,
         "preview": {
             "columns": [str(c) for c in preview_sample.columns],
@@ -193,7 +223,7 @@ def get_dataset_details(dataset_id: str) -> dict[str, Any]:
 
 
 def upload_dataset_file(upload_filename: str, contents: bytes) -> dict[str, Any]:
-    """Persist an uploaded CSV/XLSX file and return metadata."""
+    """Persist an uploaded CSV/XLSX file and return metadata, quality score, and insights."""
     filename = os.path.basename(upload_filename)
     filename = validate_dataset_id(filename)
     if not (filename.endswith(".csv") or filename.endswith(".xlsx") or filename.endswith(".xls")):
@@ -204,9 +234,17 @@ def upload_dataset_file(upload_filename: str, contents: bytes) -> dict[str, Any]
         handle.write(contents)
 
     df = load_dataset(target_path)
+    intelligence = compute_dataset_intelligence(df, filename)
+    cache_key = make_dataset_cache_key(target_path)
+    set_cached(cache_key, intelligence)
+
     null_total = int(df.isnull().sum().sum())
     cell_count = len(df) * len(df.columns)
     completeness = round((1 - null_total / max(cell_count, 1)) * 100, 1)
+
+    quality_info = intelligence["quality_score"]
+    val_report = intelligence["validation"]
+    insights_info = intelligence["insights"]
 
     columns_info = [
         {
@@ -227,12 +265,51 @@ def upload_dataset_file(upload_filename: str, contents: bytes) -> dict[str, Any]
         "record_count": len(df),
         "column_count": len(df.columns),
         "completeness": completeness,
+        "quality_score": quality_info,
+        "validation": val_report,
+        "insights": insights_info,
         "columns": columns_info,
         "preview": {
             "columns": [str(c) for c in preview_sample.columns],
             "rows": dataframe_to_json_records(preview_sample),
         },
     }
+
+
+def get_dataset_profile(dataset_id: str) -> dict[str, Any]:
+    """Return comprehensive profiling report for dataset."""
+    intelligence = get_or_load_dataset_intelligence(dataset_id)
+    return intelligence["profile"]
+
+
+def get_dataset_quality(dataset_id: str) -> dict[str, Any]:
+    """Return quality score and issue report for dataset."""
+    intelligence = get_or_load_dataset_intelligence(dataset_id)
+    return {
+        "status": "success",
+        "dataset_id": dataset_id,
+        "quality_score": intelligence["quality_score"],
+        "validation": intelligence["validation"],
+    }
+
+
+def get_dataset_insights(dataset_id: str) -> dict[str, Any]:
+    """Return automated insights for dataset."""
+    intelligence = get_or_load_dataset_intelligence(dataset_id)
+    meta = intelligence.get("insights_meta") or {}
+    return {
+        "status": meta.get("status", "success"),
+        "dataset_name": meta.get("dataset_name", dataset_id),
+        "total_insights": meta.get("total_insights", len(intelligence["insights"])),
+        "insights": intelligence["insights"],
+    }
+
+
+def clean_dataset_file(dataset_id: str, operations: list[str], save_cleaned: bool = True) -> dict[str, Any]:
+    """Clean dataset using sandbox execution and save result."""
+    path = get_dataset_path(dataset_id)
+    df = load_dataset(path)
+    return clean_dataset(df, dataset_name=os.path.basename(path), operations=operations, save_cleaned=save_cleaned)
 
 
 def delete_dataset_file(dataset_id: str) -> dict[str, Any]:
@@ -256,12 +333,18 @@ def answer_question(dataset_id: str, question: str) -> dict[str, Any]:
     start_time = time.perf_counter()
     try:
         df = load_dataset(path)
-        schema_summary = build_schema_summary(df)
-        out = agent.answer_question(question, df, schema_summary)
+        intelligence = get_or_load_dataset_intelligence(dataset_id, df=df)
+        rich_summary = build_rich_dataset_summary(
+            df,
+            dataset_name=os.path.basename(path),
+            profile=intelligence["profile"],
+            quality=intelligence["quality_score"],
+        )
+        out = agent.answer_question(question, df, rich_summary)
         latency_ms = (time.perf_counter() - start_time) * 1000
 
         table_payload = format_table_result(out["result"])
-        chart_payload = build_chart_payload(table_payload)
+        chart_payload = build_chart_payload(table_payload, question=question)
 
         chart_path = out.get("chart_path")
         chart_url = None
@@ -291,6 +374,7 @@ def answer_question(dataset_id: str, question: str) -> dict[str, Any]:
             "chart_url": chart_url,
             "chart_data": chart_payload,
             "generated_code": out["code"],
+            "analysis_plan": out.get("analysis_plan"),
             "latency_ms": round(latency_ms, 2),
             "timestamp": time.time(),
         }
